@@ -204,9 +204,6 @@ contract NodeDelegator is INodeDelegator, LRTConfigRoleChecker, PausableUpgradea
         // TODO: Once withdrawals are enabled, allow this to handle pending withdraws and a potential negative share
         // balance in the EigenPodManager ownershares
         ethStaked = stakedButNotVerifiedEth;
-        if (address(eigenPod) != address(0)) {
-            ethStaked += address(eigenPod).balance;
-        }
     }
 
     /// @notice Stake ETH from NDC into EigenLayer. it calls the stake function in the EigenPodManager
@@ -227,6 +224,12 @@ contract NodeDelegator is INodeDelegator, LRTConfigRoleChecker, PausableUpgradea
     {
         // Call the stake function in the EigenPodManager
         IEigenPodManager eigenPodManager = IEigenPodManager(lrtConfig.getContract(LRTConstants.EIGEN_POD_MANAGER));
+        if (address(eigenPod) == address(0)) {
+            eigenPodManager.createPod();
+            eigenPod = eigenPodManager.ownerToPod(address(this));
+
+            emit EigenPodCreated(address(eigenPod), address(this));
+        }
         eigenPodManager.stake{ value: 32 ether }(pubkey, signature, depositDataRoot);
 
         // Increment the staked but not verified ETH
@@ -260,6 +263,12 @@ contract NodeDelegator is INodeDelegator, LRTConfigRoleChecker, PausableUpgradea
             revert InvalidDepositRoot(expectedDepositRoot, actualDepositRoot);
         }
         IEigenPodManager eigenPodManager = IEigenPodManager(lrtConfig.getContract(LRTConstants.EIGEN_POD_MANAGER));
+        if (address(eigenPod) == address(0)) {
+            eigenPodManager.createPod();
+            eigenPod = eigenPodManager.ownerToPod(address(this));
+
+            emit EigenPodCreated(address(eigenPod), address(this));
+        }
         eigenPodManager.stake{ value: 32 ether }(pubkey, signature, depositDataRoot);
 
         // tracks staked but unverified native ETH
