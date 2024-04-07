@@ -35,6 +35,7 @@ contract LRTDepositPool is ILRTDepositPool, LRTConfigRoleChecker, PausableUpgrad
         __Pausable_init();
         __ReentrancyGuard_init();
         maxNodeDelegatorLimit = 10;
+        minAmountToDeposit = 100_000_000_000_000;
         lrtConfig = ILRTConfig(lrtConfigAddr);
         emit UpdatedLRTConfig(lrtConfigAddr);
     }
@@ -288,6 +289,7 @@ contract LRTDepositPool is ILRTDepositPool, LRTConfigRoleChecker, PausableUpgrad
         }
 
         // remove node delegator contract from queue
+        isNodeDelegator[nodeDelegatorAddress] = 0;
         nodeDelegatorQueue[ndcIndex] = nodeDelegatorQueue[length - 1];
         nodeDelegatorQueue.pop();
 
@@ -429,59 +431,6 @@ contract LRTDepositPool is ILRTDepositPool, LRTConfigRoleChecker, PausableUpgrad
         uint256 ethPricePerUint = 1e18;
 
         return ethPricePerUint * ethAmountToSend / lrtOracle.getAssetPrice(toAsset);
-    }
-
-    /// @notice swap assets that are accepted by LRTDepositPool
-    /// @dev use LRTOracle to get price for fromToken to toToken. Only callable by LRT manager
-    /// @param fromAsset Asset address to swap from
-    /// @param toAsset Asset address to swap to
-    /// @param fromAssetAmount Asset amount to swap from
-    /// @param minToAssetAmount Minimum asset amount to swap to
-
-    function swapAssetWithinDepositPool(
-        address fromAsset,
-        address toAsset,
-        uint256 fromAssetAmount,
-        uint256 minToAssetAmount
-    )
-        external
-        onlyLRTManager
-        onlySupportedAsset(fromAsset)
-        onlySupportedAsset(toAsset)
-    {
-        // checks
-        uint256 toAssetAmount = getSwapAssetReturnAmount(fromAsset, toAsset, fromAssetAmount);
-        if (toAssetAmount < minToAssetAmount || IERC20(toAsset).balanceOf(address(this)) < toAssetAmount) {
-            revert NotEnoughAssetToTransfer();
-        }
-
-        // interactions
-        IERC20(fromAsset).transferFrom(msg.sender, address(this), fromAssetAmount);
-
-        IERC20(toAsset).transfer(msg.sender, toAssetAmount);
-
-        emit AssetSwapped(fromAsset, toAsset, fromAssetAmount, toAssetAmount);
-    }
-
-    /// @notice get return amount for swapping assets that are accepted by LRTDepositPool
-    /// @dev use LRTOracle to get price for fromToken to toToken
-    /// @param fromAsset Asset address to swap from
-    /// @param toAsset Asset address to swap to
-    /// @param fromAssetAmount Asset amount to swap from
-    /// @return returnAmount Return amount of toAsset
-    function getSwapAssetReturnAmount(
-        address fromAsset,
-        address toAsset,
-        uint256 fromAssetAmount
-    )
-        public
-        view
-        returns (uint256 returnAmount)
-    {
-        address lrtOracleAddress = lrtConfig.getContract(LRTConstants.LRT_ORACLE);
-        ILRTOracle lrtOracle = ILRTOracle(lrtOracleAddress);
-
-        return lrtOracle.getAssetPrice(fromAsset) * fromAssetAmount / lrtOracle.getAssetPrice(toAsset);
     }
 
     /// @notice update max node delegator count
